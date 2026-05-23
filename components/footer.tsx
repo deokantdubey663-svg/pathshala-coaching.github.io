@@ -2,6 +2,8 @@ import Link from "next/link"
 import { Instagram, Mail, MapPin, MessageCircle, Phone } from "lucide-react"
 import Image from "next/image"
 
+const logoSrc = "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-05-21%20at%2023.34.01-kuMFZzsiL0Rk1buDgTtjnZ67W3AUMg.jpeg"
+
 export function Footer() {
   return (
     <footer className="bg-foreground text-background py-12 md:py-16">
