@@ -31,17 +31,6 @@ export function EnrollmentSection() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    // Create WhatsApp message
-    const message = `*New Enrollment Request - Pathshala*
-    
-*Student Name:* ${formData.studentName}
-*Guardian Name:* ${formData.guardianName}
-*Phone:* ${formData.phone}
-*Email:* ${formData.email || "Not provided"}
-*Class:* ${formData.class}
-*Subjects:* ${formData.subjects}
-*Address:* ${formData.address || "Not provided"}`
-
     const enrollmentRequest = {
       id: `${Date.now()}`,
       studentName: formData.studentName,
@@ -59,18 +48,11 @@ export function EnrollmentSection() {
       "pathshalaEnrollments",
       JSON.stringify([...existingRequests, enrollmentRequest])
     )
+    window.localStorage.setItem("pathshalaLastEnrollment", new Date().toISOString())
 
-    // Send to RK Sir's number (6290525782) or alternate (8240857467)
-    const whatsappUrl = `https://wa.me/916290525782?text=${encodeURIComponent(message)}`
-    
-    // Simulate submission delay
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
+    await new Promise(resolve => setTimeout(resolve, 800))
     setIsSubmitting(false)
     setIsSubmitted(true)
-    
-    // Open WhatsApp
-    window.open(whatsappUrl, "_blank")
   }
 
   const checkApprovalStatus = () => {
@@ -106,13 +88,10 @@ export function EnrollmentSection() {
                 Enrollment Request Submitted!
               </h3>
               <p className="mt-4 text-muted-foreground">
-                Thank you for your interest in Pathshala. Your enrollment request has been sent via WhatsApp. 
-                We will contact you shortly to complete the admission process.
+                Thank you for your interest in Pathshala. Your enrollment request has been recorded and is now visible in the teacher dashboard for approval.
               </p>
               <p className="mt-4 text-sm text-muted-foreground">
-                If WhatsApp did not open, please call us directly at{" "}
-                <a href="tel:+916290525782" className="text-primary font-medium">6290525782</a> or{" "}
-                <a href="tel:+918240857467" className="text-primary font-medium">8240857467</a>
+                Once the teacher approves your request, you can login to the portal using your registered phone number and the password shared by the teacher.
               </p>
               <Button 
                 className="mt-6"
@@ -159,7 +138,7 @@ export function EnrollmentSection() {
               <div className="bg-primary/5 p-4 rounded-lg">
                 <h4 className="font-semibold text-foreground">Enrollment Notifications</h4>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Your enrollment request will be sent to our admissions team via WhatsApp for quick processing.
+                  Your enrollment request will now appear directly in the Pathshala teacher dashboard for review and approval.
                 </p>
               </div>
               <div className="bg-primary/5 p-4 rounded-lg">

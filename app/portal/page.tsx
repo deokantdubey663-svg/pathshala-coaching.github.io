@@ -102,6 +102,7 @@ export default function PortalPage() {
   const [activeTab, setActiveTab] = useState("approve")
   const [pendingEnrollments, setPendingEnrollments] = useState<EnrollmentRequest[]>([])
   const [approvedStudents, setApprovedStudents] = useState<ApprovedStudent[]>([])
+  const [newEnrollmentNotice, setNewEnrollmentNotice] = useState(false)
   const [tests, setTests] = useState<TestEntry[]>([])
   const [attempts, setAttempts] = useState<TestAttempt[]>([])
   const [notifications, setNotifications] = useState<string[]>([])
@@ -161,6 +162,44 @@ export default function PortalPage() {
       window.localStorage.removeItem(STORAGE_KEYS.auth)
     }
   }, [currentUser])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key) return
+
+      if (event.key === STORAGE_KEYS.enrollments) {
+        const updated = loadStorage<EnrollmentRequest[]>(STORAGE_KEYS.enrollments, [])
+        setPendingEnrollments(updated)
+
+        if (currentUser?.role === "teacher") {
+          setMessage("New enrollment request received. Open the approval tab to review it.")
+          setNewEnrollmentNotice(true)
+        }
+      }
+
+      if (event.key === STORAGE_KEYS.approved) {
+        setApprovedStudents(loadStorage<ApprovedStudent[]>(STORAGE_KEYS.approved, []))
+      }
+
+      if (event.key === STORAGE_KEYS.tests) {
+        setTests(loadStorage<TestEntry[]>(STORAGE_KEYS.tests, []))
+      }
+
+      if (event.key === STORAGE_KEYS.attempts) {
+        setAttempts(loadStorage<TestAttempt[]>(STORAGE_KEYS.attempts, []))
+      }
+    }
+
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
+  }, [currentUser])
+
+  useEffect(() => {
+    if (!newEnrollmentNotice || typeof window === "undefined") return
+    const timer = window.setTimeout(() => setNewEnrollmentNotice(false), 8000)
+    return () => window.clearTimeout(timer)
+  }, [newEnrollmentNotice])
 
   const normalizedPhone = phone.replace(/\D/g, "")
 
@@ -286,6 +325,12 @@ export default function PortalPage() {
     setMessage("Marks updated successfully.")
   }
 
+  const handleRemoveStudent = (studentPhone: string) => {
+    setApprovedStudents((prev) => prev.filter((student) => student.phone !== studentPhone))
+    setAttempts((prev) => prev.filter((attempt) => attempt.studentPhone !== studentPhone))
+    setMessage(`Student with phone ${studentPhone} has been removed from the program.`)
+  }
+
   const studentAttempts = useMemo(
     () => attempts.filter((attempt) => attempt.studentPhone === currentUser?.phone),
     [attempts, currentUser]
@@ -311,6 +356,12 @@ export default function PortalPage() {
 
   const renderTeacherDashboard = () => (
     <div className="space-y-8">
+      {newEnrollmentNotice && (
+        <div className="rounded-3xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
+          New enrollment request received. Review and approve it from the approval tab.
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardContent>
@@ -438,9 +489,18 @@ export default function PortalPage() {
                       <div className="grid gap-3">
                         {students.map((student) => (
                           <div key={student.id} className="rounded-2xl border border-border p-4">
-                            <p className="font-semibold">{student.studentName}</p>
-                            <p className="text-sm text-muted-foreground">Phone: {student.phone}</p>
-                            <p className="text-sm text-muted-foreground">Subjects: {student.subjects}</p>
+                            <div className="flex flex-col gap-3">
+                              <div>
+                                <p className="font-semibold">{student.studentName}</p>
+                                <p className="text-sm text-muted-foreground">Phone: {student.phone}</p>
+                                <p className="text-sm text-muted-foreground">Subjects: {student.subjects}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-3 items-center">
+                                <Button variant="outline" size="sm" onClick={() => handleRemoveStudent(student.phone)}>
+                                  Remove from Program
+                                </Button>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
