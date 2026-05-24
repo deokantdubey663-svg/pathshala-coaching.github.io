@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import {
   approveEnrollmentRemote,
+  createApprovedStudentRemote,
   fetchApprovedStudentsRemote,
   fetchPendingEnrollmentsRemote,
   loadLocalApprovedStudents,
@@ -125,6 +126,15 @@ export default function PortalPage() {
     pdfName: "",
   })
   const [attemptNote, setAttemptNote] = useState("")
+  const [manualForm, setManualForm] = useState({
+    studentName: "",
+    guardianName: "",
+    phone: "",
+    email: "",
+    class: "Class 8",
+    subjects: "English Only",
+    address: "",
+  })
 
   useEffect(() => {
     const loadPortalData = async () => {
@@ -333,6 +343,52 @@ export default function PortalPage() {
       prev.includes(request.phone) ? prev : [...prev, request.phone]
     )
     setMessage(`Approved ${request.studentName}. The student can now check approval status from the main enrollment page.`)
+  }
+
+  const handleManualStudentAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const newStudent = {
+      id: `${Date.now()}`,
+      studentName: manualForm.studentName,
+      guardianName: manualForm.guardianName,
+      phone: manualForm.phone,
+      email: manualForm.email,
+      class: manualForm.class,
+      subjects: manualForm.subjects,
+      address: manualForm.address,
+      submittedAt: new Date().toISOString(),
+      approvedAt: new Date().toISOString(),
+    }
+
+    const remoteResult = await createApprovedStudentRemote(newStudent)
+
+    setApprovedStudents((prev) => {
+      const alreadyApproved = prev.some((student) => student.phone === newStudent.phone)
+      return alreadyApproved ? prev : [newStudent, ...prev]
+    })
+
+    const existingApproved = loadLocalApprovedStudents()
+    saveLocalApprovedStudents([
+      newStudent,
+      ...existingApproved.filter((student) => student.phone !== newStudent.phone),
+    ])
+
+    if (!remoteResult?.success) {
+      setMessage("Student added locally. Remote storage is unavailable or not configured.")
+      return
+    }
+
+    setManualForm({
+      studentName: "",
+      guardianName: "",
+      phone: "",
+      email: "",
+      class: "Class 8",
+      subjects: "English Only",
+      address: "",
+    })
+    setMessage("Student added manually and is now available in the teacher dashboard.")
   }
 
   const handleCreateTest = (e: React.FormEvent) => {

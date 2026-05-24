@@ -72,6 +72,14 @@ export async function fetchApprovedStudentsRemote(phone?: string) {
   return fetchJson<ApprovedStudent[]>(url.toString())
 }
 
+export async function createApprovedStudentRemote(student: ApprovedStudent) {
+  return fetchJson<{ success: boolean; approved?: ApprovedStudent }>("/api/approved", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(student),
+  })
+}
+
 export async function approveEnrollmentRemote(id: string) {
   return fetchJson<{ success: boolean; approved?: ApprovedStudent }>("/api/enrollments/approve", {
     method: "POST",

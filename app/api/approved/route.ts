@@ -33,3 +33,18 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(approvedStudents)
 }
+
+export async function POST(req: NextRequest) {
+  if (!isRemoteStorageEnabled()) {
+    return NextResponse.json({ error: "Remote storage is not configured." }, { status: 500 })
+  }
+
+  const student = await req.json() as ApprovedStudent
+  const approvedStudents = await getRemoteData<ApprovedStudent[]>(APPROVED_KEY, [])
+
+  const alreadyExists = approvedStudents.some((item) => item.phone === student.phone)
+  const nextApproved = alreadyExists ? approvedStudents : [student, ...approvedStudents]
+
+  await setRemoteData(APPROVED_KEY, nextApproved)
+  return NextResponse.json({ success: true, approved: student })
+}
