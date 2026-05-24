@@ -126,19 +126,24 @@ export default function PortalPage() {
     address: "",
   })
 
+  const mergeApprovedLists = (remote: ApprovedStudent[], local: ApprovedStudent[]) => {
+    const merged = [...remote]
+    local.forEach((localStudent) => {
+      if (!merged.some((remoteStudent) => remoteStudent.phone === localStudent.phone)) {
+        merged.push(localStudent)
+      }
+    })
+    return merged
+  }
+
   useEffect(() => {
     const loadPortalData = async () => {
       const localApproved = loadStorage<ApprovedStudent[]>(STORAGE_KEYS.approved, [])
       setApprovedStudents(localApproved)
 
       const remoteApproved = await fetchApprovedStudentsRemote()
-      if (remoteApproved && remoteApproved.length > 0) {
-        const mergedApproved = [
-          ...remoteApproved,
-          ...localApproved.filter(
-            (local) => !remoteApproved.some((remote) => remote.phone === local.phone)
-          ),
-        ]
+      if (remoteApproved) {
+        const mergedApproved = mergeApprovedLists(remoteApproved, localApproved)
         setApprovedStudents(mergedApproved)
         saveLocalApprovedStudents(mergedApproved)
       }
@@ -206,6 +211,23 @@ export default function PortalPage() {
     return () => window.removeEventListener("storage", handleStorage)
   }, [currentUser])
 
+  useEffect(() => {
+    if (typeof window === "undefined" || currentUser?.role !== "teacher") return
+
+    const syncApproved = async () => {
+      const remoteApproved = await fetchApprovedStudentsRemote()
+      if (!remoteApproved) return
+
+      const localApproved = loadLocalApprovedStudents()
+      const mergedApproved = mergeApprovedLists(remoteApproved, localApproved)
+      setApprovedStudents(mergedApproved)
+      saveLocalApprovedStudents(mergedApproved)
+    }
+
+    syncApproved()
+    const interval = window.setInterval(syncApproved, 10000)
+    return () => window.clearInterval(interval)
+  }, [currentUser])
 
   const normalizedPhone = phone.replace(/\D/g, "")
 
@@ -221,23 +243,19 @@ export default function PortalPage() {
       return
     }
 
-    const approvedList =
-      approvedStudents.length > 0
-        ? approvedStudents
-        : (await fetchApprovedStudentsRemote()) || loadLocalApprovedStudents()
+    const remoteApproved = await fetchApprovedStudentsRemote()
+    const localApproved = loadLocalApprovedStudents()
+    const approvedList = approvedStudents.length > 0
+      ? approvedStudents
+      : remoteApproved?.length > 0
+        ? remoteApproved
+        : localApproved
 
-    const student = approvedList.find((student) => student.phone === normalizedPhone)
-    if (!student) {
+    const approved = approvedList.find((student) => student.phone === normalizedPhone)
+    if (!approved) {
       setMessage("No registered student found. Ask your teacher to add your phone number manually in the portal.")
       return
     }
-
-    setCurrentUser({
-      role: "student",
-      phone: normalizedPhone,
-      name: student.studentName,
-      class: student.class,
-    })
 
     setCurrentUser({
       role: "student",
@@ -280,14 +298,22 @@ export default function PortalPage() {
     })
 
     const existingApproved = loadLocalApprovedStudents()
-    saveLocalApprovedStudents([
+    const mergedLocal = [
       newStudent,
       ...existingApproved.filter((student) => student.phone !== newStudent.phone),
-    ])
+    ]
+    saveLocalApprovedStudents(mergedLocal)
 
     if (!remoteResult?.success) {
       setMessage("Student added locally. Remote storage is unavailable or not configured.")
       return
+    }
+
+    const remoteApproved = await fetchApprovedStudentsRemote()
+    if (remoteApproved) {
+      const mergedApproved = mergeApprovedLists(remoteApproved, mergedLocal)
+      setApprovedStudents(mergedApproved)
+      saveLocalApprovedStudents(mergedApproved)
     }
 
     setManualForm({
