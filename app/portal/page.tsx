@@ -324,7 +324,10 @@ export default function PortalPage() {
       ...request,
       approvedAt: new Date().toISOString(),
     }
-    setApprovedStudents((prev) => [...prev, approved])
+    setApprovedStudents((prev) => {
+      const alreadyApproved = prev.some((student) => student.phone === approved.phone)
+      return alreadyApproved ? prev : [...prev, approved]
+    })
     setPendingEnrollments((prev) => prev.filter((item) => item.id !== id))
     setNotifications((prev) =>
       prev.includes(request.phone) ? prev : [...prev, request.phone]

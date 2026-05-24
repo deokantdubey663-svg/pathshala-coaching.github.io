@@ -13,7 +13,12 @@ type EnrollmentRequest = {
   submittedAt: string
 }
 
+type ApprovedStudent = EnrollmentRequest & {
+  approvedAt: string
+}
+
 const ENROLLMENTS_KEY = "pathshalaEnrollments"
+const APPROVED_KEY = "pathshalaApprovedStudents"
 
 export async function GET() {
   if (!isRemoteStorageEnabled()) {
@@ -43,7 +48,15 @@ export async function POST(req: NextRequest) {
   }
 
   const pendingEnrollments = await getRemoteData<EnrollmentRequest[]>(ENROLLMENTS_KEY, [])
+  const approvedStudents = await getRemoteData<ApprovedStudent[]>(APPROVED_KEY, [])
+
+  const approvedStudent: ApprovedStudent = {
+    ...newEnrollment,
+    approvedAt: new Date().toISOString(),
+  }
+
   await setRemoteData(ENROLLMENTS_KEY, [newEnrollment, ...pendingEnrollments])
+  await setRemoteData(APPROVED_KEY, [approvedStudent, ...approvedStudents])
 
   return NextResponse.json({ success: true, enrollment: newEnrollment })
 }

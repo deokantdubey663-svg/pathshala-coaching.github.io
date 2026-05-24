@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label"
 import { CheckCircle, Loader2 } from "lucide-react"
 import {
   fetchApprovedStudentsRemote,
+  loadLocalApprovedStudents,
   loadLocalEnrollments,
+  saveLocalApprovedStudents,
   saveLocalEnrollments,
   submitEnrollmentRemote,
 } from "@/lib/portal-api"
@@ -53,6 +55,16 @@ export function EnrollmentSection() {
     if (!remoteResult?.success) {
       const existingRequests = loadLocalEnrollments()
       saveLocalEnrollments([...existingRequests, enrollmentRequest])
+
+      const existingApproved = loadLocalApprovedStudents()
+      saveLocalApprovedStudents([
+        {
+          ...enrollmentRequest,
+          approvedAt: new Date().toISOString(),
+        },
+        ...existingApproved,
+      ])
+
       window.localStorage.setItem("pathshalaLastEnrollment", new Date().toISOString())
     }
 
