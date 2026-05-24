@@ -217,20 +217,27 @@ export default function PortalPage() {
     }
 
     if (password !== STUDENT_PASSWORD) {
-      setMessage("Students must use the password provided by their teacher after approval.")
+      setMessage("Students must use the password provided by their teacher.")
       return
     }
 
     const approvedList =
       approvedStudents.length > 0
         ? approvedStudents
-        : (await fetchApprovedStudentsRemote()) || []
+        : (await fetchApprovedStudentsRemote()) || loadLocalApprovedStudents()
 
-    const approved = approvedList.find((student) => student.phone === normalizedPhone)
-    if (!approved) {
-      setMessage("No approved student found. Ask your teacher to add your details manually in the portal.")
+    const student = approvedList.find((student) => student.phone === normalizedPhone)
+    if (!student) {
+      setMessage("No registered student found. Ask your teacher to add your phone number manually in the portal.")
       return
     }
+
+    setCurrentUser({
+      role: "student",
+      phone: normalizedPhone,
+      name: student.studentName,
+      class: student.class,
+    })
 
     setCurrentUser({
       role: "student",
