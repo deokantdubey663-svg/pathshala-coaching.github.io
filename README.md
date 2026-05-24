@@ -37,14 +37,15 @@ To make enrollment requests available across devices and to the teacher dashboar
 
 1. Open the project in Vercel.
 2. Go to Settings → Integrations.
-3. Add Vercel KV or Upstash Redis.
-4. Add environment variables if required by the integration:
+3. Add the Vercel KV integration or Upstash Redis.
+4. Add the environment variables required by the integration:
    - `VERCEL_KV_URL`
    - `VERCEL_KV_TOKEN`
-   - or the corresponding Upstash Redis values.
 5. Redeploy after saving the settings.
 
 If remote storage is not configured, enrollment submissions will still save locally in the browser, but cross-device sync will not work.
+
+> You can also use `.env.example` as a reference when setting local env vars for development.
 
 ### Use a custom domain
 1. In Vercel, open your project settings.
