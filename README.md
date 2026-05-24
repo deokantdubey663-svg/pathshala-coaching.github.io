@@ -21,14 +21,14 @@ Use: `pathshala-coaching`
 4. Create a new repository on GitHub named `pathshala-coaching`.
 5. Add the remote and push:
    ```bash
-   git remote add origin https://github.com/<your-github-username>/pathshala-coaching.git
+   git remote add origin https://github.com/<your-github-username>/pathshala-coaching.github.io.git
    git branch -M main
    git push -u origin main
    ```
 
 ## Deploy to Vercel (recommended)
 1. Go to https://vercel.com and sign in with GitHub.
-2. Import the repository `pathshala-coaching`.
+2. Import the repository `pathshala-coaching.github.io`.
 3. Use the default Next.js build settings.
 4. Deploy the project.
 
