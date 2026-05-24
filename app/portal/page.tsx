@@ -19,6 +19,15 @@ import {
   Users,
   UserCheck,
 } from "lucide-react"
+import {
+  approveEnrollmentRemote,
+  fetchApprovedStudentsRemote,
+  fetchPendingEnrollmentsRemote,
+  loadLocalApprovedStudents,
+  loadLocalEnrollments,
+  saveLocalApprovedStudents,
+  saveLocalEnrollments,
+} from "@/lib/portal-api"
 
 const TEACHER_NUMBERS = ["6289026660", "6290525782", "8240857467"]
 const STUDENT_PASSWORD = "2006"
@@ -118,15 +127,36 @@ export default function PortalPage() {
   const [attemptNote, setAttemptNote] = useState("")
 
   useEffect(() => {
-    setPendingEnrollments(loadStorage<EnrollmentRequest[]>(STORAGE_KEYS.enrollments, []))
-    setApprovedStudents(loadStorage<ApprovedStudent[]>(STORAGE_KEYS.approved, []))
-    setNotifications(loadStorage<string[]>(STORAGE_KEYS.notifications, []))
-    setTests(loadStorage<TestEntry[]>(STORAGE_KEYS.tests, []))
-    setAttempts(loadStorage<TestAttempt[]>(STORAGE_KEYS.attempts, []))
-    const auth = loadStorage<AuthUser | null>(STORAGE_KEYS.auth, null)
-    if (auth) {
-      setCurrentUser(auth)
+    const loadPortalData = async () => {
+      const [remoteEnrollments, remoteApproved] = await Promise.all([
+        fetchPendingEnrollmentsRemote(),
+        fetchApprovedStudentsRemote(),
+      ])
+
+      if (remoteEnrollments) {
+        setPendingEnrollments(remoteEnrollments)
+        saveLocalEnrollments(remoteEnrollments)
+      } else {
+        setPendingEnrollments(loadStorage<EnrollmentRequest[]>(STORAGE_KEYS.enrollments, []))
+      }
+
+      if (remoteApproved) {
+        setApprovedStudents(remoteApproved)
+        saveLocalApprovedStudents(remoteApproved)
+      } else {
+        setApprovedStudents(loadStorage<ApprovedStudent[]>(STORAGE_KEYS.approved, []))
+      }
+
+      setNotifications(loadStorage<string[]>(STORAGE_KEYS.notifications, []))
+      setTests(loadStorage<TestEntry[]>(STORAGE_KEYS.tests, []))
+      setAttempts(loadStorage<TestAttempt[]>(STORAGE_KEYS.attempts, []))
+      const auth = loadStorage<AuthUser | null>(STORAGE_KEYS.auth, null)
+      if (auth) {
+        setCurrentUser(auth)
+      }
     }
+
+    loadPortalData()
   }, [])
 
   useEffect(() => {
@@ -196,6 +226,25 @@ export default function PortalPage() {
   }, [currentUser])
 
   useEffect(() => {
+    if (typeof window === "undefined" || currentUser?.role !== "teacher") return
+
+    const interval = window.setInterval(async () => {
+      const updatedPending = await fetchPendingEnrollmentsRemote()
+      if (!updatedPending) return
+
+      if (updatedPending.length > pendingEnrollments.length) {
+        setMessage("New enrollment request received. Open the approval tab to review it.")
+        setNewEnrollmentNotice(true)
+      }
+
+      setPendingEnrollments(updatedPending)
+      saveLocalEnrollments(updatedPending)
+    }, 10000)
+
+    return () => window.clearInterval(interval)
+  }, [currentUser, pendingEnrollments.length])
+
+  useEffect(() => {
     if (!newEnrollmentNotice || typeof window === "undefined") return
     const timer = window.setTimeout(() => setNewEnrollmentNotice(false), 8000)
     return () => window.clearTimeout(timer)
@@ -203,7 +252,7 @@ export default function PortalPage() {
 
   const normalizedPhone = phone.replace(/\D/g, "")
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (TEACHER_NUMBERS.includes(normalizedPhone)) {
       setCurrentUser({ role: "teacher", phone: normalizedPhone })
       setMessage("")
@@ -215,7 +264,12 @@ export default function PortalPage() {
       return
     }
 
-    const approved = approvedStudents.find((student) => student.phone === normalizedPhone)
+    const approvedList =
+      approvedStudents.length > 0
+        ? approvedStudents
+        : (await fetchApprovedStudentsRemote()) || []
+
+    const approved = approvedList.find((student) => student.phone === normalizedPhone)
     if (!approved) {
       setMessage("No approved student found. Please enroll and wait for teacher approval.")
       return
@@ -238,9 +292,34 @@ export default function PortalPage() {
     setActiveTab("approve")
   }
 
-  const handleApprove = (id: string) => {
+  const handleApprove = async (id: string) => {
     const request = pendingEnrollments.find((item) => item.id === id)
     if (!request) return
+
+    const response = await approveEnrollmentRemote(id)
+    if (response?.success) {
+      const [updatedPending, updatedApproved] = await Promise.all([
+        fetchPendingEnrollmentsRemote(),
+        fetchApprovedStudentsRemote(),
+      ])
+
+      if (updatedPending) {
+        setPendingEnrollments(updatedPending)
+        saveLocalEnrollments(updatedPending)
+      }
+
+      if (updatedApproved) {
+        setApprovedStudents(updatedApproved)
+        saveLocalApprovedStudents(updatedApproved)
+      }
+
+      setNotifications((prev) =>
+        prev.includes(request.phone) ? prev : [...prev, request.phone]
+      )
+      setMessage(`Approved ${request.studentName}. The student can now check approval status from the main enrollment page.`)
+      return
+    }
+
     const approved = {
       ...request,
       approvedAt: new Date().toISOString(),

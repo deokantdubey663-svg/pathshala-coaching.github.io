@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { CheckCircle, Loader2 } from "lucide-react"
+import {
+  fetchApprovedStudentsRemote,
+  loadLocalEnrollments,
+  saveLocalEnrollments,
+  submitEnrollmentRemote,
+} from "@/lib/portal-api"
 
 export function EnrollmentSection() {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -43,27 +49,29 @@ export function EnrollmentSection() {
       submittedAt: new Date().toISOString(),
     }
 
-    const existingRequests = JSON.parse(window.localStorage.getItem("pathshalaEnrollments") || "[]")
-    window.localStorage.setItem(
-      "pathshalaEnrollments",
-      JSON.stringify([...existingRequests, enrollmentRequest])
-    )
-    window.localStorage.setItem("pathshalaLastEnrollment", new Date().toISOString())
+    const remoteResult = await submitEnrollmentRemote(enrollmentRequest)
+    if (!remoteResult?.success) {
+      const existingRequests = loadLocalEnrollments()
+      saveLocalEnrollments([...existingRequests, enrollmentRequest])
+      window.localStorage.setItem("pathshalaLastEnrollment", new Date().toISOString())
+    }
 
-    await new Promise(resolve => setTimeout(resolve, 800))
+    await new Promise((resolve) => setTimeout(resolve, 800))
     setIsSubmitting(false)
     setIsSubmitted(true)
   }
 
-  const checkApprovalStatus = () => {
+  const checkApprovalStatus = async () => {
     const cleanedPhone = statusPhone.replace(/\D/g, "")
     if (!cleanedPhone) {
       setStatusMessage("Please enter your registered phone number to check approval status.")
       return
     }
 
-    if (typeof window === "undefined") return
-    const approvedList = JSON.parse(window.localStorage.getItem("pathshalaApprovedStudents") || "[]")
+    const approvedList =
+      (await fetchApprovedStudentsRemote(cleanedPhone)) ||
+      JSON.parse(window.localStorage.getItem("pathshalaApprovedStudents") || "[]")
+
     const approved = approvedList.find((student: any) => student.phone === cleanedPhone)
 
     if (approved) {
