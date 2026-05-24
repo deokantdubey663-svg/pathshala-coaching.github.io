@@ -128,13 +128,19 @@ export default function PortalPage() {
 
   useEffect(() => {
     const loadPortalData = async () => {
-      const remoteApproved = await fetchApprovedStudentsRemote()
+      const localApproved = loadStorage<ApprovedStudent[]>(STORAGE_KEYS.approved, [])
+      setApprovedStudents(localApproved)
 
-      if (remoteApproved) {
-        setApprovedStudents(remoteApproved)
-        saveLocalApprovedStudents(remoteApproved)
-      } else {
-        setApprovedStudents(loadStorage<ApprovedStudent[]>(STORAGE_KEYS.approved, []))
+      const remoteApproved = await fetchApprovedStudentsRemote()
+      if (remoteApproved && remoteApproved.length > 0) {
+        const mergedApproved = [
+          ...remoteApproved,
+          ...localApproved.filter(
+            (local) => !remoteApproved.some((remote) => remote.phone === local.phone)
+          ),
+        ]
+        setApprovedStudents(mergedApproved)
+        saveLocalApprovedStudents(mergedApproved)
       }
 
       setNotifications(loadStorage<string[]>(STORAGE_KEYS.notifications, []))
@@ -507,12 +513,16 @@ export default function PortalPage() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="subjects">Subjects</Label>
-                      <Input
+                      <select
                         id="subjects"
                         value={manualForm.subjects}
                         onChange={(e) => setManualForm({ ...manualForm, subjects: e.target.value })}
-                        placeholder="English Only"
-                      />
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <option>English Only</option>
+                        <option>Only Arts</option>
+                        <option>All Subjects</option>
+                      </select>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="address">Address</Label>
