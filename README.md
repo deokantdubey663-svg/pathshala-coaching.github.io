@@ -33,19 +33,28 @@ Use: `pathshala-coaching`
 4. Deploy the project.
 
 ### Configure remote enrollment sync
-To make enrollment requests available across devices and to the teacher dashboard, you must configure a Vercel remote data store.
+To make enrollment requests available across devices and to the teacher dashboard, you must configure a remote data store.
 
+Option 1: Vercel KV
 1. Open the project in Vercel.
 2. Go to Settings → Integrations.
-3. Add the Vercel KV integration or Upstash Redis.
-4. Add the environment variables required by the integration:
+3. Add the Vercel KV integration.
+4. Add environment variables:
    - `VERCEL_KV_URL`
    - `VERCEL_KV_TOKEN`
+
+Option 2: Upstash Redis (recommended if Vercel KV is unavailable)
+1. Create an Upstash Redis database at https://upstash.com.
+2. Copy the REST URL and token.
+3. Add environment variables:
+   - `UPSTASH_REDIS_REST_URL`
+   - `UPSTASH_REDIS_REST_TOKEN`
+
 5. Redeploy after saving the settings.
 
 If remote storage is not configured, enrollment submissions will still save locally in the browser, but cross-device sync will not work.
 
-> You can also use `.env.example` as a reference when setting local env vars for development.
+> Use `.env.example` in the project root as a reference when setting local environment variables.
 
 ### Use a custom domain
 1. In Vercel, open your project settings.
