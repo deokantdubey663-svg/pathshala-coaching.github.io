@@ -20,20 +20,15 @@ import {
   UserCheck,
 } from "lucide-react"
 import {
-  approveEnrollmentRemote,
   createApprovedStudentRemote,
   fetchApprovedStudentsRemote,
-  fetchPendingEnrollmentsRemote,
   loadLocalApprovedStudents,
-  loadLocalEnrollments,
   saveLocalApprovedStudents,
-  saveLocalEnrollments,
 } from "@/lib/portal-api"
 
 const TEACHER_NUMBERS = ["6289026660", "6290525782", "8240857467"]
 const STUDENT_PASSWORD = "2006"
 const STORAGE_KEYS = {
-  enrollments: "pathshalaEnrollments",
   approved: "pathshalaApprovedStudents",
   notifications: "pathshalaApprovalNotifications",
   tests: "pathshalaTests",
@@ -41,7 +36,7 @@ const STORAGE_KEYS = {
   auth: "pathshalaPortalAuth",
 }
 
-type EnrollmentRequest = {
+type ApprovedStudent = {
   id: string
   studentName: string
   guardianName: string
@@ -51,9 +46,6 @@ type EnrollmentRequest = {
   subjects: string
   address: string
   submittedAt: string
-}
-
-type ApprovedStudent = EnrollmentRequest & {
   approvedAt: string
 }
 
@@ -109,10 +101,8 @@ export default function PortalPage() {
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState("")
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null)
-  const [activeTab, setActiveTab] = useState("approve")
-  const [pendingEnrollments, setPendingEnrollments] = useState<EnrollmentRequest[]>([])
+  const [activeTab, setActiveTab] = useState("students")
   const [approvedStudents, setApprovedStudents] = useState<ApprovedStudent[]>([])
-  const [newEnrollmentNotice, setNewEnrollmentNotice] = useState(false)
   const [tests, setTests] = useState<TestEntry[]>([])
   const [attempts, setAttempts] = useState<TestAttempt[]>([])
   const [notifications, setNotifications] = useState<string[]>([])
@@ -138,17 +128,7 @@ export default function PortalPage() {
 
   useEffect(() => {
     const loadPortalData = async () => {
-      const [remoteEnrollments, remoteApproved] = await Promise.all([
-        fetchPendingEnrollmentsRemote(),
-        fetchApprovedStudentsRemote(),
-      ])
-
-      if (remoteEnrollments) {
-        setPendingEnrollments(remoteEnrollments)
-        saveLocalEnrollments(remoteEnrollments)
-      } else {
-        setPendingEnrollments(loadStorage<EnrollmentRequest[]>(STORAGE_KEYS.enrollments, []))
-      }
+      const remoteApproved = await fetchApprovedStudentsRemote()
 
       if (remoteApproved) {
         setApprovedStudents(remoteApproved)
@@ -168,11 +148,6 @@ export default function PortalPage() {
 
     loadPortalData()
   }, [])
-
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    window.localStorage.setItem(STORAGE_KEYS.enrollments, JSON.stringify(pendingEnrollments))
-  }, [pendingEnrollments])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -208,16 +183,6 @@ export default function PortalPage() {
     const handleStorage = (event: StorageEvent) => {
       if (!event.key) return
 
-      if (event.key === STORAGE_KEYS.enrollments) {
-        const updated = loadStorage<EnrollmentRequest[]>(STORAGE_KEYS.enrollments, [])
-        setPendingEnrollments(updated)
-
-        if (currentUser?.role === "teacher") {
-          setMessage("New enrollment request received. Open the approval tab to review it.")
-          setNewEnrollmentNotice(true)
-        }
-      }
-
       if (event.key === STORAGE_KEYS.approved) {
         setApprovedStudents(loadStorage<ApprovedStudent[]>(STORAGE_KEYS.approved, []))
       }
@@ -235,30 +200,6 @@ export default function PortalPage() {
     return () => window.removeEventListener("storage", handleStorage)
   }, [currentUser])
 
-  useEffect(() => {
-    if (typeof window === "undefined" || currentUser?.role !== "teacher") return
-
-    const interval = window.setInterval(async () => {
-      const updatedPending = await fetchPendingEnrollmentsRemote()
-      if (!updatedPending) return
-
-      if (updatedPending.length > pendingEnrollments.length) {
-        setMessage("New enrollment request received. Open the approval tab to review it.")
-        setNewEnrollmentNotice(true)
-      }
-
-      setPendingEnrollments(updatedPending)
-      saveLocalEnrollments(updatedPending)
-    }, 10000)
-
-    return () => window.clearInterval(interval)
-  }, [currentUser, pendingEnrollments.length])
-
-  useEffect(() => {
-    if (!newEnrollmentNotice || typeof window === "undefined") return
-    const timer = window.setTimeout(() => setNewEnrollmentNotice(false), 8000)
-    return () => window.clearTimeout(timer)
-  }, [newEnrollmentNotice])
 
   const normalizedPhone = phone.replace(/\D/g, "")
 
@@ -281,7 +222,7 @@ export default function PortalPage() {
 
     const approved = approvedList.find((student) => student.phone === normalizedPhone)
     if (!approved) {
-      setMessage("No approved student found. Please enroll and wait for teacher approval.")
+      setMessage("No approved student found. Ask your teacher to add your details manually in the portal.")
       return
     }
 
@@ -299,50 +240,7 @@ export default function PortalPage() {
     setPhone("")
     setPassword("")
     setMessage("")
-    setActiveTab("approve")
-  }
-
-  const handleApprove = async (id: string) => {
-    const request = pendingEnrollments.find((item) => item.id === id)
-    if (!request) return
-
-    const response = await approveEnrollmentRemote(id)
-    if (response?.success) {
-      const [updatedPending, updatedApproved] = await Promise.all([
-        fetchPendingEnrollmentsRemote(),
-        fetchApprovedStudentsRemote(),
-      ])
-
-      if (updatedPending) {
-        setPendingEnrollments(updatedPending)
-        saveLocalEnrollments(updatedPending)
-      }
-
-      if (updatedApproved) {
-        setApprovedStudents(updatedApproved)
-        saveLocalApprovedStudents(updatedApproved)
-      }
-
-      setNotifications((prev) =>
-        prev.includes(request.phone) ? prev : [...prev, request.phone]
-      )
-      setMessage(`Approved ${request.studentName}. The student can now check approval status from the main enrollment page.`)
-      return
-    }
-
-    const approved = {
-      ...request,
-      approvedAt: new Date().toISOString(),
-    }
-    setApprovedStudents((prev) => {
-      const alreadyApproved = prev.some((student) => student.phone === approved.phone)
-      return alreadyApproved ? prev : [...prev, approved]
-    })
-    setPendingEnrollments((prev) => prev.filter((item) => item.id !== id))
-    setNotifications((prev) =>
-      prev.includes(request.phone) ? prev : [...prev, request.phone]
-    )
-    setMessage(`Approved ${request.studentName}. The student can now check approval status from the main enrollment page.`)
+    setActiveTab("students")
   }
 
   const handleManualStudentAdd = async (e: React.FormEvent) => {
@@ -494,23 +392,7 @@ export default function PortalPage() {
 
   const renderTeacherDashboard = () => (
     <div className="space-y-8">
-      {newEnrollmentNotice && (
-        <div className="rounded-3xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
-          New enrollment request received. Review and approve it from the approval tab.
-        </div>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent>
-            <div className="flex items-center gap-3 mb-4">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              <p className="text-sm font-semibold">Teacher Access</p>
-            </div>
-            <p className="text-3xl font-bold">{pendingEnrollments.length}</p>
-            <p className="text-sm text-muted-foreground">Pending enrollments</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent>
             <div className="flex items-center gap-3 mb-4">
@@ -518,7 +400,7 @@ export default function PortalPage() {
               <p className="text-sm font-semibold">Approved Students</p>
             </div>
             <p className="text-3xl font-bold">{approvedStudents.length}</p>
-            <p className="text-sm text-muted-foreground">Active students</p>
+            <p className="text-sm text-muted-foreground">Students added manually</p>
           </CardContent>
         </Card>
         <Card>
@@ -547,10 +429,10 @@ export default function PortalPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.3em] text-primary font-semibold">Teacher Panel</p>
-            <h2 className="mt-2 text-2xl font-bold text-foreground">Manage enrollments, students, and tests</h2>
+            <h2 className="mt-2 text-2xl font-bold text-foreground">Manage students and tests</h2>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Button variant={activeTab === "approve" ? "default" : "outline"} onClick={() => setActiveTab("approve")}>Approve Enrollments</Button>
+            <Button variant={activeTab === "add" ? "default" : "outline"} onClick={() => setActiveTab("add")}>Add Student</Button>
             <Button variant={activeTab === "students" ? "default" : "outline"} onClick={() => setActiveTab("students")}>Student List</Button>
             <Button variant={activeTab === "tests" ? "default" : "outline"} onClick={() => setActiveTab("tests")}>Create Test</Button>
             <Button variant={activeTab === "grade" ? "default" : "outline"} onClick={() => setActiveTab("grade")}>Grade Tests</Button>
@@ -558,55 +440,95 @@ export default function PortalPage() {
         </div>
 
         <div className="mt-8">
-          {activeTab === "approve" && (
-            <div className="space-y-4">
-              {pendingEnrollments.length === 0 ? (
-                <Card className="border-dashed border-2 border-border bg-background/60">
-                  <CardContent>
-                    <p className="text-muted-foreground">No pending enrollments at the moment. All requests have been reviewed.</p>
-                  </CardContent>
-                </Card>
-              ) : (
-                pendingEnrollments.map((enrollment) => (
-                  <Card key={enrollment.id} className="border">
-                    <CardContent>
-                      <div className="grid gap-4 md:grid-cols-3">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Student Name</p>
-                          <p className="font-semibold">{enrollment.studentName}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Class</p>
-                          <p className="font-semibold">{enrollment.class}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Phone</p>
-                          <p className="font-semibold">{enrollment.phone}</p>
-                        </div>
-                      </div>
-                      <div className="mt-4 grid gap-4 md:grid-cols-3">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Guardian</p>
-                          <p>{enrollment.guardianName}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Subjects</p>
-                          <p>{enrollment.subjects}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Submitted</p>
-                          <p>{new Date(enrollment.submittedAt).toLocaleString()}</p>
-                        </div>
-                      </div>
-                      <div className="mt-6 flex flex-wrap gap-3 items-center justify-between">
-                        <p className="text-sm text-muted-foreground line-clamp-2">{enrollment.address || "Address not provided."}</p>
-                        <Button onClick={() => handleApprove(enrollment.id)}>Approve Student</Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
+          {activeTab === "add" && (
+            <Card className="border">
+              <CardHeader>
+                <CardTitle>Add a Student Manually</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-4" onSubmit={handleManualStudentAdd}>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="studentName">Student Name</Label>
+                      <Input
+                        id="studentName"
+                        value={manualForm.studentName}
+                        onChange={(e) => setManualForm({ ...manualForm, studentName: e.target.value })}
+                        placeholder="Student full name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="guardianName">Guardian Name</Label>
+                      <Input
+                        id="guardianName"
+                        value={manualForm.guardianName}
+                        onChange={(e) => setManualForm({ ...manualForm, guardianName: e.target.value })}
+                        placeholder="Guardian / parent name"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number</Label>
+                      <Input
+                        id="phone"
+                        value={manualForm.phone}
+                        onChange={(e) => setManualForm({ ...manualForm, phone: e.target.value })}
+                        placeholder="Student phone number"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        value={manualForm.email}
+                        onChange={(e) => setManualForm({ ...manualForm, email: e.target.value })}
+                        placeholder="Student email address"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="class">Class</Label>
+                      <select
+                        id="class"
+                        value={manualForm.class}
+                        onChange={(e) => setManualForm({ ...manualForm, class: e.target.value })}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <option>Class 8</option>
+                        <option>Class 9</option>
+                        <option>Class 10</option>
+                        <option>Class 11</option>
+                        <option>Class 12</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="subjects">Subjects</Label>
+                      <Input
+                        id="subjects"
+                        value={manualForm.subjects}
+                        onChange={(e) => setManualForm({ ...manualForm, subjects: e.target.value })}
+                        placeholder="English Only"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Address</Label>
+                      <Input
+                        id="address"
+                        value={manualForm.address}
+                        onChange={(e) => setManualForm({ ...manualForm, address: e.target.value })}
+                        placeholder="Student address"
+                      />
+                    </div>
+                  </div>
+
+                  <Button type="submit">Save Student</Button>
+                </form>
+              </CardContent>
+            </Card>
           )}
 
           {activeTab === "students" && (
@@ -614,7 +536,7 @@ export default function PortalPage() {
               {Object.entries(approvedByClass).length === 0 ? (
                 <Card className="border-dashed border-2 border-border bg-background/60">
                   <CardContent>
-                    <p className="text-muted-foreground">No approved students yet. Approve enrollment requests to populate student groups.</p>
+                    <p className="text-muted-foreground">No students have been added yet. Use Add Student to add them manually.</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -942,7 +864,7 @@ export default function PortalPage() {
           <p className="text-sm uppercase tracking-[0.35em] text-primary font-semibold">Pathshala Portal</p>
           <h1 className="text-4xl md:text-5xl font-bold text-foreground font-[var(--font-playfair)]">Teacher and Student Login</h1>
           <p className="max-w-3xl mx-auto text-muted-foreground">
-            Teachers can approve enrollments, create tests, and grade students. After approval, students can login with their registered phone number and the password shared by the teacher.
+            Teachers can add students manually, create tests, and grade students. Once a teacher adds a student, that student can login with the phone number and shared password.
           </p>
         </div>
 
@@ -990,12 +912,12 @@ export default function PortalPage() {
                   </p>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  If you are a student, use the phone number with which you enrolled and the password shared by your teacher after approval.
+                  If you are a student, use the phone number your teacher added for you and the password shared by the teacher.
                 </p>
                 <div className="rounded-2xl border border-border bg-card p-4 text-sm text-muted-foreground">
                   <p className="font-medium">Note</p>
                   <p>
-                    Enrollment requests submitted through the main form are stored and can be approved by a teacher in this portal. Once approved, the student can log in automatically.
+                    Students are added manually by the teacher in this portal. No external enrollment approval is required.
                   </p>
                 </div>
               </div>
@@ -1025,7 +947,7 @@ export default function PortalPage() {
 
         <div className="mt-10 text-center text-sm text-muted-foreground">
           <p>
-            Want to enroll a new student? Return to the <Link href="/" className="text-primary underline">homepage enrollment form</Link> and submit a request.
+            Students should ask their teacher to add them manually in the portal. Teacher access is phone-based and grants manual student creation.
           </p>
         </div>
       </div>
