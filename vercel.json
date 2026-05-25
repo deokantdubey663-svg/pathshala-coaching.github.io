@@ -1,9 +1,16 @@
 {
   "version": 2,
+  "name": "pathshala-coaching",
   "builds": [
     {
       "src": "package.json",
       "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
     }
   ]
 }

@@ -1,7 +1,10 @@
 {
-  "name": "my-project",
-  "version": "0.1.0",
+  "name": "pathshala-coaching",
+  "version": "1.0.0",
+  "description": "Pathshala Coaching Institute - Premier English & Arts coaching in Bhadreshwar, Hooghly, West Bengal for WBBSE & WBCHSE students",
   "private": true,
+  "author": "Pathshala Coaching Institute",
+  "license": "MIT",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
