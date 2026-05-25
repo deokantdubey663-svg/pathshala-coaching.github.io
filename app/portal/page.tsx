@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import Head from "next/head"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -773,8 +774,20 @@ export default function PortalPage() {
   }
 
   return (
-    <main className="min-h-screen bg-background py-24">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <>
+      <Head>
+        <title>Student Portal | Pathshala Coaching</title>
+        <meta name="description" content="Pathshala Coaching Student Portal - Access tests, submit answers, and track your results. Teachers manage students and create tests." />
+        <meta name="keywords" content="Pathshala Portal, student portal, teacher portal, online tests, coaching portal Bhadreshwar" />
+        <link rel="canonical" href="https://pathshala-coaching.in/portal" />
+        <meta property="og:title" content="Student Portal | Pathshala Coaching" />
+        <meta property="og:description" content="Access tests, submit answers, and track results at Pathshala Coaching" />
+        <meta property="og:url" content="https://pathshala-coaching.in/portal" />
+        <meta property="og:type" content="website" />
+        <meta name="robots" content="index, follow" />
+      </Head>
+      <main className="min-h-screen bg-background py-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-3 mb-10 text-center">
           <p className="text-sm uppercase tracking-[0.35em] text-primary font-semibold">Pathshala Portal</p>
           <h1 className="text-4xl md:text-5xl font-bold text-foreground font-[var(--font-playfair)]">Teacher and Student Login</h1>
@@ -837,5 +850,6 @@ export default function PortalPage() {
         )}
       </div>
     </main>
+    </>
   )
 }

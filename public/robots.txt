@@ -1,0 +1,40 @@
+# Robots.txt for Pathshala Coaching
+# https://pathshala-coaching.in
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://pathshala-coaching.in/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1
+
+# Allow all search engine bots
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+
+# Block common unnecessary files
+Disallow: /api/
+Disallow: /_next/
+Disallow: /*.json$
+Disallow: /*.txt$
+
+# Allow CSS and JS for proper rendering
+Allow: /*.css$
+Allow: /*.js$
