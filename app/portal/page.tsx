@@ -121,23 +121,17 @@ function saveAuth(user: AuthUser | null) {
   }
 }
 
-// Convert local datetime-local value to proper UTC ISO string for Supabase
+// Convert datetime-local value to a proper UTC ISO string.
+// The datetime-local input gives "2026-05-26T14:00" with no timezone.
+// JavaScript's new Date() treats this as LOCAL browser time, which is correct.
+// We then convert to UTC ISO so Supabase (PostgreSQL timestamptz) stores it accurately.
+// When reading back, new Date(isoString) auto-converts to the student's local time.
 function localDatetimeToUtc(localValue: string): string {
   if (!localValue) return ""
-  // datetime-local gives us "2026-05-26T14:30" in local time
-  const date = new Date(localValue)
-  return date.toISOString()
-}
-
-// Get server-synced time to fix timezone drift
-function getSyncedTime(serverTime: string | null): Date {
-  if (serverTime) {
-    const server = new Date(serverTime)
-    const local = new Date()
-    const drift = local.getTime() - server.getTime()
-    if (Math.abs(drift) < 60000) return local // Less than 1 min drift is fine
-  }
-  return new Date()
+  // new Date("2026-05-26T14:00") interprets this in the browser's local timezone
+  const localDate = new Date(localValue)
+  // toISOString() gives UTC: "2026-05-26T08:30:00.000Z" (for IST +5:30)
+  return localDate.toISOString()
 }
 
 export default function PortalPage() {
@@ -159,9 +153,6 @@ export default function PortalPage() {
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [loadingTests, setLoadingTests] = useState(false)
   const [loadingDoubts, setLoadingDoubts] = useState(false)
-
-  // Server time sync
-  const [serverTimeOffset, setServerTimeOffset] = useState<number>(0)
 
   // Decrypted doubt content
   const [decryptedQuestions, setDecryptedQuestions] = useState<Record<string, string>>({})
@@ -212,35 +203,6 @@ export default function PortalPage() {
     const auth = loadAuth()
     if (auth) setCurrentUser(auth)
   }, [])
-
-  // Sync with server time on load
-  useEffect(() => {
-    const syncTime = async () => {
-      try {
-        const start = Date.now()
-        const resp = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/`, {
-          headers: {
-            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          },
-        })
-        const end = Date.now()
-        const serverDate = resp.headers.get("date")
-        if (serverDate) {
-          const serverMs = new Date(serverDate).getTime()
-          const latency = (end - start) / 2
-          setServerTimeOffset(serverMs - (start + latency))
-        }
-      } catch {
-        // Fallback: no offset
-      }
-    }
-    syncTime()
-  }, [])
-
-  // Get accurate current time using server offset
-  const getNow = useCallback(() => {
-    return new Date(Date.now() + serverTimeOffset)
-  }, [serverTimeOffset])
 
   // Decrypt doubt content when doubts change
   useEffect(() => {
@@ -662,7 +624,7 @@ export default function PortalPage() {
       }
 
       const update = () => {
-        const now = getNow()
+        const now = new Date()
         const start = new Date(test.start_at!)
         const end = new Date(start.getTime() + test.duration * 60000)
         const fiveMinBefore = new Date(start.getTime() - 5 * 60000)
@@ -702,7 +664,7 @@ export default function PortalPage() {
       update()
       const interval = setInterval(update, 1000)
       return () => clearInterval(interval)
-    }, [test, getNow])
+    }, [test])
 
     return (
       <div className="flex items-center gap-2">
@@ -892,7 +854,12 @@ export default function PortalPage() {
                     <div className="space-y-2">
                       <Label>Start Date &amp; Time</Label>
                       <Input type="datetime-local" value={testForm.start_at} onChange={(e) => setTestForm({ ...testForm, start_at: e.target.value })} />
-                      <p className="text-xs text-muted-foreground">Time is saved in your local timezone for accuracy.</p>
+                      {testForm.start_at && (
+                        <p className="text-xs text-green-600 font-medium">
+                          Students will see: {new Date(testForm.start_at).toLocaleString()} (your local time)
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">Set the time in your local timezone. Students will see the correct time in their timezone.</p>
                     </div>
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
@@ -1250,6 +1217,9 @@ export default function PortalPage() {
                         <div>
                           <p className="font-semibold text-foreground">{test.title}</p>
                           <p className="text-sm text-muted-foreground">{test.subject} &bull; {test.type} &bull; {test.total_marks} marks</p>
+                          {test.start_at && (
+                            <p className="text-sm text-muted-foreground">Starts: {new Date(test.start_at).toLocaleString()}</p>
+                          )}
                           <p className="text-sm text-muted-foreground">Duration: {test.duration} min</p>
                         </div>
                         <TestCountdown test={test} />
@@ -1403,7 +1373,7 @@ export default function PortalPage() {
       }
 
       const update = () => {
-        const now = getNow()
+        const now = new Date()
         const start = new Date(test.start_at!)
         const end = new Date(start.getTime() + test.duration * 60000)
         const fiveMinBefore = new Date(start.getTime() - 5 * 60000)
@@ -1433,7 +1403,7 @@ export default function PortalPage() {
       update()
       const interval = setInterval(update, 1000)
       return () => clearInterval(interval)
-    }, [test, studentPhone, getNow])
+    }, [test, studentPhone])
 
     if (canOpen) {
       return (
@@ -1474,7 +1444,7 @@ export default function PortalPage() {
       }
 
       const update = () => {
-        const now = getNow()
+        const now = new Date()
         const start = new Date(test.start_at!)
         const end = new Date(start.getTime() + test.duration * 60000)
         setCanSubmit(now >= start && now <= end)
@@ -1483,7 +1453,7 @@ export default function PortalPage() {
       update()
       const interval = setInterval(update, 1000)
       return () => clearInterval(interval)
-    }, [test, getNow])
+    }, [test])
 
     return (
       <Button onClick={onAttempt} disabled={!canSubmit}>
