@@ -210,3 +210,193 @@ export async function updateAttemptMarks(
   }
   return true
 }
+
+// Doubts API
+export type Doubt = {
+  id: string
+  student_phone: string
+  student_name: string
+  student_class: string
+  subject: string
+  question: string
+  question_iv: string
+  answer: string | null
+  answer_iv: string | null
+  teacher_phone: string | null
+  status: "pending" | "answered"
+  created_at: string
+  answered_at: string | null
+}
+
+export async function fetchDoubts(): Promise<Doubt[]> {
+  const { data, error } = await supabase
+    .from("doubts")
+    .select("*")
+    .order("created_at", { ascending: false })
+  if (error) {
+    console.error("fetchDoubts error:", error)
+    return []
+  }
+  return data ?? []
+}
+
+export async function fetchDoubtsByStudent(phone: string): Promise<Doubt[]> {
+  const { data, error } = await supabase
+    .from("doubts")
+    .select("*")
+    .eq("student_phone", phone)
+    .order("created_at", { ascending: false })
+  if (error) {
+    console.error("fetchDoubtsByStudent error:", error)
+    return []
+  }
+  return data ?? []
+}
+
+export async function addDoubt(doubt: Omit<Doubt, "id" | "created_at" | "answered_at">): Promise<Doubt | null> {
+  const { data, error } = await supabase
+    .from("doubts")
+    .insert(doubt)
+    .select()
+    .maybeSingle()
+  if (error) {
+    console.error("addDoubt error:", error)
+    return null
+  }
+  return data
+}
+
+export async function answerDoubt(
+  doubtId: string,
+  answer: string,
+  answerIv: string,
+  teacherPhone: string
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("doubts")
+    .update({
+      answer,
+      answer_iv: answerIv,
+      teacher_phone: teacherPhone,
+      status: "answered",
+      answered_at: new Date().toISOString(),
+    })
+    .eq("id", doubtId)
+  if (error) {
+    console.error("answerDoubt error:", error)
+    return false
+  }
+  return true
+}
+
+// Announcements API
+export type Announcement = {
+  id: string
+  teacher_phone: string
+  title: string
+  message: string
+  target_class: string
+  priority: "normal" | "important" | "urgent"
+  created_at: string
+}
+
+export async function fetchAnnouncements(): Promise<Announcement[]> {
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("*")
+    .order("created_at", { ascending: false })
+  if (error) {
+    console.error("fetchAnnouncements error:", error)
+    return []
+  }
+  return data ?? []
+}
+
+export async function fetchAnnouncementsByClass(className: string): Promise<Announcement[]> {
+  const { data, error } = await supabase
+    .from("announcements")
+    .select("*")
+    .or(`target_class.eq.${className},target_class.eq.all`)
+    .order("created_at", { ascending: false })
+  if (error) {
+    console.error("fetchAnnouncementsByClass error:", error)
+    return []
+  }
+  return data ?? []
+}
+
+export async function createAnnouncement(announcement: Omit<Announcement, "id" | "created_at">): Promise<Announcement | null> {
+  const { data, error } = await supabase
+    .from("announcements")
+    .insert(announcement)
+    .select()
+    .maybeSingle()
+  if (error) {
+    console.error("createAnnouncement error:", error)
+    return null
+  }
+  return data
+}
+
+export async function deleteAnnouncement(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("announcements")
+    .delete()
+    .eq("id", id)
+  if (error) {
+    console.error("deleteAnnouncement error:", error)
+    return false
+  }
+  return true
+}
+
+// Notifications API
+export type Notification = {
+  id: string
+  student_phone: string
+  student_name: string
+  announcement_id: string | null
+  type: "announcement" | "test_reminder"
+  message: string
+  delivered: boolean
+  delivered_at: string | null
+  created_at: string
+}
+
+export async function fetchNotificationsByStudent(phone: string): Promise<Notification[]> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .select("*")
+    .eq("student_phone", phone)
+    .order("created_at", { ascending: false })
+  if (error) {
+    console.error("fetchNotificationsByStudent error:", error)
+    return []
+  }
+  return data ?? []
+}
+
+export async function createNotification(notification: Omit<Notification, "id" | "created_at" | "delivered_at">): Promise<Notification | null> {
+  const { data, error } = await supabase
+    .from("notifications")
+    .insert(notification)
+    .select()
+    .maybeSingle()
+  if (error) {
+    console.error("createNotification error:", error)
+    return null
+  }
+  return data
+}
+
+export async function markNotificationDelivered(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("notifications")
+    .update({ delivered: true, delivered_at: new Date().toISOString() })
+    .eq("id", id)
+  if (error) {
+    console.error("markNotificationDelivered error:", error)
+    return false
+  }
+  return true
+}
