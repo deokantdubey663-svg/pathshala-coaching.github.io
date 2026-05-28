@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0f766e"/>
+  <g fill="white" transform="translate(256, 256) scale(0.95)">
+    <!-- Open book -->
+    <path d="M-200 -50 Q-200 -150 -100 -150 L50 -150 Q100 -150 100 -100 L100 200 L-100 200 Q-200 200 -200 100 Z"/>
+    <path d="M100 -100 Q100 -150 200 -150 L300 -150 Q400 -150 400 -50 L400 100 Q400 200 300 200 L100 200 Z"/>
+  </g>
+  <!-- P letter -->
+  <text x="256" y="430" text-anchor="middle" font-size="130" font-weight="bold" font-family="Arial" fill="white">P</text>
+</svg>
